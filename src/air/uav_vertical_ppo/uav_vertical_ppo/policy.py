@@ -5,4 +5,7 @@ def load_policy(path, env):
     return PPO.load(path, device='cpu', custom_objects={
         'observation_space': env.observation_space,
         'action_space': env.action_space,
+        # 推理不需要训练环境最后一次观测；清空临时状态保持版本可移植。
+        '_last_obs': None,
+        '_last_episode_starts': None,
     })
