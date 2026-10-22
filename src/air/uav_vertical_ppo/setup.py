@@ -1,5 +1,6 @@
 """安装四旋翼垂直通道 PPO 定高控制."""
 from glob import glob
+from pathlib import Path
 from setuptools import find_packages, setup
 
 setup(
@@ -9,7 +10,8 @@ setup(
         ('share/uav_vertical_ppo', ['package.xml']),
         ('share/uav_vertical_ppo/launch', glob('launch/*.launch.py')),
         ('share/uav_vertical_ppo/models', glob('models/*.xml')),
-        ('share/uav_vertical_ppo/data', glob('data/*')),
+        ('share/uav_vertical_ppo/data/evaluation', glob('data/evaluation/*')),
+        ('share/uav_vertical_ppo/data', [p for p in glob('data/*') if Path(p).is_file()]),
     ],
     install_requires=['setuptools'], zip_safe=False,
     description='四旋翼垂直通道 PPO 定高控制', license='MIT',

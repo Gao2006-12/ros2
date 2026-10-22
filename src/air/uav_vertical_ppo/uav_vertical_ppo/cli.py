@@ -41,7 +41,12 @@ def evaluate(model_path, output, gif=False):
     import matplotlib.pyplot as plt
 
     output.mkdir(parents=True, exist_ok=True)
-    model = PPO.load(model_path, device='cpu')
+    from .policy import load_policy
+    reference = VerticalHoverEnv()
+    try:
+        model = load_policy(model_path, reference)
+    finally:
+        reference.close()
     metrics, trajectories, frames = [], {}, []
     for scenario in ('calm', 'gust', 'payload'):
         for controller in ('ppo', 'pd', 'constant'):

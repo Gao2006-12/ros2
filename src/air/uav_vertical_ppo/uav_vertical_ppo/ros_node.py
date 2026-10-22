@@ -19,7 +19,8 @@ def main(args=None):
             self.declare_parameter('model_path', str(resource('data/hover_ppo.zip')))
             self.env = VerticalHoverEnv(self.get_parameter('scenario').value,
                                         self.get_parameter('target_height').value)
-            self.policy = PPO.load(self.get_parameter('model_path').value, device='cpu')
+            from .policy import load_policy
+            self.policy = load_policy(self.get_parameter('model_path').value, self.env)
             self.obs, _ = self.env.reset(seed=101)
             self.publisher = self.create_publisher(String, '/uav/hover_state', 10)
             self.timer = self.create_timer(0.02, self.tick)
