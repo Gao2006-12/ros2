@@ -7,6 +7,7 @@
   <maintainer email="gao2006-12@users.noreply.github.com">Gao2006-12</maintainer>
   <license>Apache-2.0</license>
 
+  <exec_depend>rcl_interfaces</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>std_srvs</exec_depend>

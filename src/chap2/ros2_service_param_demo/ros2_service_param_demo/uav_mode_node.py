@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """无人机模式节点：演示 ROS 2 的服务、参数与话题发布."""
 
+from rcl_interfaces.msg import ParameterDescriptor, SetParametersResult
 import rclpy
-from rcl_interfaces.msg import SetParametersResult
 from rclpy.node import Node
 from std_msgs.msg import String
 from std_srvs.srv import SetBool
+
+VALID_MODES = ('IDLE', 'FLYING', 'LANDING')
+MAX_PUBLISH_RATE = 100.0
 
 
 class UavModeNode(Node):
@@ -15,15 +18,20 @@ class UavModeNode(Node):
         """创建服务、参数与状态发布定时器."""
         super().__init__('uav_mode_node')
 
-        # 参数：先声明默认值，之后可用 ros2 param set 在线修改
-        self.declare_parameter('publish_rate', 2.0)
-        self.declare_parameter('start_mode', 'IDLE')
+        # start_mode 只允许在启动时配置，运行中修改会被 rclpy 拒绝
+        self.declare_parameter(
+            'start_mode', 'IDLE',
+            ParameterDescriptor(
+                read_only=True, description='启动模式：IDLE / FLYING / LANDING'))
+        self.declare_parameter(
+            'publish_rate', 2.0,
+            ParameterDescriptor(description='状态发布频率，范围 (0, 100] Hz'))
 
-        self.publish_rate = self.get_parameter('publish_rate').value
-        self.mode = self.get_parameter('start_mode').value
+        self.publish_rate = self.read_publish_rate()
+        self.mode = self.read_start_mode()
         self.count = 0
 
-        # 参数更新回调：publish_rate 改变后立即按新频率重建定时器
+        # 参数更新回调：先校验、后生效
         self.add_on_set_parameters_callback(self.on_parameter_update)
 
         # 服务：切换飞行模式（true -> FLYING，false -> IDLE）
@@ -37,6 +45,24 @@ class UavModeNode(Node):
             'uav_mode_node 已启动: publish_rate=%.1f Hz, mode=%s'
             % (self.publish_rate, self.mode))
 
+    def read_publish_rate(self):
+        """读取并校验 publish_rate，非法值回退到 2.0，避免启动期除零."""
+        value = float(self.get_parameter('publish_rate').value)
+        if value <= 0.0 or value > MAX_PUBLISH_RATE:
+            self.get_logger().warn(
+                'publish_rate=%.3f 不在 (0, %.0f] 范围内，回退到 2.0 Hz'
+                % (value, MAX_PUBLISH_RATE))
+            return 2.0
+        return value
+
+    def read_start_mode(self):
+        """读取并校验 start_mode，非法值回退到 IDLE."""
+        value = self.get_parameter('start_mode').value
+        if value not in VALID_MODES:
+            self.get_logger().warn('start_mode=%s 不合法，回退到 IDLE' % value)
+            return 'IDLE'
+        return value
+
     def on_set_mode(self, request, response):
         """服务回调：根据请求把模式切换为 FLYING 或 IDLE."""
         self.mode = 'FLYING' if request.data else 'IDLE'
@@ -46,17 +72,22 @@ class UavModeNode(Node):
         return response
 
     def on_parameter_update(self, parameters):
-        """参数回调：只接受大于 0 的 publish_rate，并让它立即生效."""
-        rate_changed = False
+        """参数回调：先整体校验，全部合法后再应用到属性与定时器."""
+        new_rate = None
         for param in parameters:
             if param.name == 'publish_rate':
-                if param.value <= 0.0:
-                    return SetParametersResult(
-                        successful=False, reason='publish_rate 必须大于 0')
-                self.publish_rate = param.value
-                rate_changed = True
+                new_rate = float(param.value)
 
-        if rate_changed:
+        if new_rate is not None and new_rate <= 0.0:
+            return SetParametersResult(
+                successful=False, reason='publish_rate 必须大于 0')
+        if new_rate is not None and new_rate > MAX_PUBLISH_RATE:
+            return SetParametersResult(
+                successful=False,
+                reason='publish_rate 不能超过 %.0f' % MAX_PUBLISH_RATE)
+
+        if new_rate is not None:
+            self.publish_rate = new_rate
             self.timer.cancel()
             self.timer = self.create_timer(1.0 / self.publish_rate, self.publish_status)
             self.get_logger().info('publish_rate 已改为 %.1f Hz' % self.publish_rate)
@@ -81,7 +112,11 @@ def main(args=None):
     except KeyboardInterrupt:
         node.get_logger().info('uav_mode_node 被手动终止')
     finally:
-        node.destroy_node()
+        # ros2 launch 下 Ctrl+C 可能在销毁节点时再抛一次 KeyboardInterrupt
+        try:
+            node.destroy_node()
+        except KeyboardInterrupt:
+            pass
         if rclpy.ok():
             rclpy.shutdown()
 
