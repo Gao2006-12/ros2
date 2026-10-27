@@ -117,8 +117,11 @@ def main(args=None):
             node.destroy_node()
         except KeyboardInterrupt:
             pass
-        if rclpy.ok():
-            rclpy.shutdown()
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except KeyboardInterrupt:
+            pass
 
 
 if __name__ == '__main__':

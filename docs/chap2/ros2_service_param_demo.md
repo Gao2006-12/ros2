@@ -111,7 +111,7 @@ ros2 topic echo /uav/status
 ros2 topic hz /uav/status     # 频率与 publish_rate 一致
 ```
 
-结束运行：在终端按 `Ctrl+C`。此时可能看到 `KeyboardInterrupt` 的 Traceback，也可能只看到节点打印的 `uav_mode_node 被手动终止`，都属于正常退出提示；若还跟着一行 `Failed to publish log message to rosout: publisher's context is invalid`，同样是节点销毁后的正常现象。
+结束运行：在终端按 `Ctrl+C`。正常情况下只会看到节点打印的 `uav_mode_node 被手动终止` 后退出（退出路径已捕获 `KeyboardInterrupt`，不会再打印 Traceback）；若还跟着一行 `Failed to publish log message to rosout: publisher's context is invalid`，同样是节点销毁后的正常现象。
 
 > 两点注意：① **方式 B 是本地源码调试入口**，它通过 ament 索引查找 `ros2_service_param_demo`，必须先 `source ~/ros2_ws/install/setup.bash`，干净终端只 source ROS 2 会报 `package 'ros2_service_param_demo' not found`；参数用 `--ros-args -p publish_rate:=5.0` 透传。② `publish_rate` 是 double 类型，请写 `0.0` 而不是 `0`（整数字面量会报类型错误）；取值范围 (0, 100] Hz，超出会在启动时回退到 2.0 并告警。
 
